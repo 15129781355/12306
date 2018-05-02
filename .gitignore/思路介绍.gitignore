@@ -1,1 +1,227 @@
+1.先进行一个大致的思路体系  我的思路是把main函数当成查票的函数（如果没有票就不用进行登录  有票的话则需要进行 登陆 然后购票）
+此项目  用3.6版本   主要依赖库有 requests urllib  re   并且由于有登陆操作的cookie的传递  全部把requests.get/post  换成  req = requests.Session()
+用于自动保存cookie   req.get()/post()  还有 反爬措施就加header的UA即可
+
+
+
+
+
+
+
+
+
+
+
+
+下来首先进行查票功能的实现
+一般建议先访问网页的首页一次可以避免cookie的限制请求req.get('http://www.12306.cn/mormhweb/',headers =header)
+然后进入查票的页面  chromF12  在XHR里找（一般ajax json格式的都是在此）找到页面
+response=req.get('https://kyfw.12306.cn/otn/leftTicket/query?leftTicketDTO.train_date={}&leftTicketDTO.from_station={}&leftTicketDTO.to_station={}&purpose_codes=ADULT'.format(TRAIN_DATE,from_station,to_station),headers=header)
+在这里我避免写死  就用了format方法  参数TRAIN_DATE='2018-05-10'   FROM_STATION = '成都'   TO_STATION = '长沙'
+第一个参数比较好找 格式必须对应他是火车发车日期     剩余两个 可以从一个页面找到@bjb|北京北|VAP|beijingbei|bjb|0@bjd|北京东|BOP|beijingdong|bjd|1@bji|北京|BJP|beijing|bj|2@bjn|北京南|VNP|beijingnan|bjn|3@bjx|北京西|BXP|beijingxi|bjx|4@gzn|广州南|IZQ|guangzhounan|gzn|5@cqb|重庆北|CUW|chongqingbei|cqb|6@cqi|重庆|CQW|chongqing|cq|7@cqn|重庆南|CRW|chongqingnan|cqn|8@cqx|重庆西|CXW|chongqingxi|cqx|9@gzd|广州东|GGQ|guangzhoudong|gzd|10@sha|上海|SHH|shanghai|sh|11@shn|上海南|SNH|shanghainan|shn|12@shq|上海虹桥|AOH|shanghaihongqiao|shhq|13@shx|上海西|SXH|shanghaixi|shx|14@tjb|天津北|TBP|tianjinbei|tjb|15@tji|天津|TJP|tianjin|tj|16@tjn|天津南|TIP|tianjinnan|tjn|17@tjx|天津西|TXP|tianjinxi|tjx|18@cch|长春|CCT|changchun|cc|19@ccn|长春南|CET|changchunnan|ccn|20@ccx|长春西|CRT|changchunxi|ccx|21@cdd|成都东|ICW|chengdudong|cdd|22@cdn|成都南|CNW|chengdunan|cdn|23@cdu|成都|CDW|chengdu|cd|24@csh|长沙|CSQ|changsha|cs|25@csn|长沙南|CWQ|changshanan|csn|26@fzh|福州|FZS|fuzhou|fz|27@fzn|福州南|FYS|fuzhounan|fzn|28@gya|贵阳|GIW|guiyang|gy|29@gzh|广州|GZQ|guangzhou|gz|30@gzx|广州西|GXQ|guangzhouxi|gzx|31@heb|哈尔滨|HBB|haerbin|heb|32@hed|哈尔滨东|VBB|haerbindong|hebd|33@hex|哈尔滨西|VAB|haerbinxi|hebx|34@hfe|合肥|HFH|hefei|hf|35@hfx|合肥西|HTH|hefeixi|hfx|36@hhd|呼和浩特东|NDC|huhehaotedong|hhhtd|37@hht|呼和浩特|HHC|huhehaote|hhht|38@hkd|海  口东|KEQ|haikoudong|hkd|39@hkd|海口东|HMQ|haikoudong|hkd|40@hko|海口|VUQ|haikou|hk|41@hzd|杭州东|HGH|hangzhoudong|hzd|42@hzh|杭州|HZH|hangzhou|hz|43@hzn|杭州南|XHH|
+诸如此类的数据  直接复制粘贴   进行简单的处理  与FROM_STATION = '成都'   TO_STATION = '长沙'这两个参数 形成键值对的格式 直接获取 
+
+response网页中如果是json格式的话直接  使用resonse.json()  可以通过键值对字典操作的方法取值
+这里通过
+'''1预定  3车次 8出发时间 9到达时间 10历时 21 高级软卧 23软卧  25,32商务座特等座
+ 31一等座  30二等座 26无座 29 硬座 28硬卧 33 动卧  27 软座'''
+for i in check_stamp():###  这个函数返回result['data']['result']
+    tem_list = i.split('|')  分割
+    set = tem_list[SET]        把分割得到的数据 与其他地方的火车做对比然后确定位置循序即可     参数的确定可以通过 for循环的 方式找到是第多少个
+                                  sorce = tem_list[0]  这些参数后面需要用到 到时候在提取  
+                                  count_taxi = tem_list[3]
+                                  train_location = tem_list[15]
+                                  train_no = tem_list[2]
+                                  fromStation = tem_list[4]
+    if set == '' or set == '无':
+        print('无票',tem_list[3])
+    else:
+        print('有票', tem_list[3],set)
+        #有票后登陆 然后 预定
+        login()
+        order()
+        break
+ ####################################  在登陆和购票的时候把第一步...  步骤写清晰  并且加上判断  判断的依据自己通过抓包决定 #################################################
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 然后实现登陆的操作
+ response = req.get('https://kyfw.12306.cn/passport/captcha/captcha-image?login_site=E&module=login&rand=sjrand')
+首先获取到图片url  发现这个url是直接可以用的是  实时更换的  就是连其他的参数都不需要获取  就可以访问
+通过二进制  保存到  当地  response.content这个是返回二进制数据  一定要用（适用于图片 视频等 ）
+
+url = 'https://kyfw.12306.cn/passport/captcha/captcha-check'
+    data={
+    'answer':input('>>>>'),
+    'login_site':'E',
+    'rand':'sjrand'
+    } 
+   然后就是post请求  这里的 'answer'参数就是验证码 点击的坐标 你自己需要找到图片的0,0点位置 多抓几次包就可以实现 
+   #验证码的处理   这个可以通过对接打码平台   也可以自己输入  就是输入  几个坐标 然后用逗号隔开就好
+ 格式45,113,121,114,258,46   是成双成对的    方法为通过从原点(0,0)截图 指到需要点击的  图片上  只要在这个图片上就可以通过 
+  通过验证后就是登陆了
+  user = {
+        'username':userr,
+        'password': pwd,
+        'appid': 'otn'}
+    response = req.post(url='https://kyfw.12306.cn/passport/web/login',data = user,headers=header)
+    参数不用说了吧  
+    然后我想要验证是否成功  我需要访问  我的个人主页  看是否有我的帐号用户名
+    https://kyfw.12306.cn/otn/index/initMy12306 这个url
+    发现并没有成功
+    就需要接着模拟抓包得到下面的  url进行分析了 还有别的验证
+    request = req.post('https://kyfw.12306.cn/passport/web/auth/uamtk', headers=header,data={'appid':'otn'})
+    TK =request.json()['newapptk']      这个url传下来的值 
+    request = req.post('https://kyfw.12306.cn/otn/uamauthclient', headers=header, data={'tk': TK})
+    找到了两个url   进行验证处理  然后再次访问个人主页  发现 可以用re 匹配到我的账户名  说明登陆成功   
+    
+    这两个url需要自己去分析  从所有的url里一个一个找 总会有的  这一步会坑死很多人的 在这一步就放弃了 
+    
+ 
+ 
+ 
+ 
+ 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 下来说下 购票   一共分5步  第六步是购票  这几步都不难   就是传参数 全是post请求  也没啥js加密算法 api接口 可以通过chrom全局搜索进行找取参数
+ 在这里推荐使用 charls抓包工具  进行抓取  去百度  先破解一下 然后设置 抓取https的包 自己解决  
+ 
+request = req.post('https://kyfw.12306.cn/otn/login/checkUser', headers=header, data={'_json_att': ''})
+  #下单第一步  这个没啥说的
+  
+  sorce = urllib.parse.unquote(sorce) ##与上面的for循环得到的参数sorce = tem_list[0]基本一样 但是有一些差别
+  分析
+  B2Z1WEX4HNlJ3Iwf4ESHu3thHAQhOpP8MM1EUc%2BedigKe8vRCy5z2r9T0ey4DhbuUx4AGt4j56u%0AxMm1JZDLA%2FyCRnUC5h9XWDXuBe23tTY3H8NC%2FCVcXqPX7PrnhNJiKqVCYhPhG%2FYOzmBkaFNFtCuA%0AhvRBy2T3cfARkQUaPhx7EP2ct5RakP13wJUkfMcQKuFVs7QTFzql%2FQO39Eess6qzmOxJMtWXKWA9%0AB9g3Jhfag8qopI2uF7VoBeycOlBngknq%2F2Sg9aY%3D
+  看到有百分号了没  %2F %3D这个是url的编码格式  需要unquote进行解码   例如 编码(加密)是把一个中文 quote('武则天')得到的结果就是%2D%2F...一长串
+  这个是最基本的url的编码  在各大网站   很多情况 
+    data = {
+        'back_train_date':NOW_TIME,
+        'purpose_codes':'ADULT',
+        'query_from_station_name':FROM_STATION,
+        'query_to_station_name':TO_STATION,
+        'secretStr':sorce,
+        'tour_flag':'dc',     ###一定注意检查参数对不对
+        'train_date' :TRAIN_DATE,
+        'undefined':''}
+    request = req.post('https://kyfw.12306.cn/otn/leftTicket/submitOrderRequest', headers=header, data=data)
+    secretStr参数解决了 应该就没有甚么 难得了
+    #下单第二步  结束
+    
+    request1 = req.post('https://kyfw.12306.cn/otn/confirmPassenger/initDc',headers=header ,data={'_json_att':''} )
+    repeat_submit_token = re.findall(r"var globalRepeatSubmitToken = '(.*?)'",request1.text)[0]      
+      这两个参数后面需要用到 这就不多说了   liftTicket = re.findall(r"'leftTicketStr':'(.*?)'",request1.text)[0] 
+                                        key_check_ischange = re.findall(r"'key_check_isChange':'(.*?)'",request1.text)[0]
+        print('成功获取登陆验证码')
+    
+    data = {'_json_att':'',
+    'REPEAT_SUBMIT_TOKEN':repeat_submit_token}
+    request = req.post('https://kyfw.12306.cn/otn/confirmPassenger/getPassengerDTOs',headers=header , data=data)
+    REPEAT_SUBMIT_TOKEN 这个可以通过抓包工具全局搜索  到的   当然也可以自己找  一个一个找
+     #下单第三步  结束
+ 
+    
+    data = {'_json_att': '',
+            'bed_level_order_num':'000000000000000000000000000000',
+            'cancel_flag':2,
+            'oldPassengerStr':'写死的',
+        'passengerTicketStr':'写死的',
+            'randCode':'',
+            'REPEAT_SUBMIT_TOKEN': repeat_submit_token,    ###看见没这里又要验证了 直接传入就行了
+            'tour_flag': 'dc',
+            'whatsSelect':1}
+    request = req.post('https://kyfw.12306.cn/otn/confirmPassenger/checkOrderInfo', headers=header, data=data)
+  这里必须要说明  因为我被坑过   数字必须要int格式  不能字符串啊  
+  #下单第四步  结束
+  
+  
+    data = {'_json_att':'',
+            'fromStationTelecode':fromStation,
+            'leftTicket':liftTicket,                   ####跟repeat_submit_token  一起获得的
+            'purpose_codes':'00',
+            'REPEAT_SUBMIT_TOKEN':repeat_submit_token,   ###########看这里又用到了
+            'seatType':'4',
+            'tationTrainCode':count_taxi,
+            'toStationTelecode':to_station,
+            'train_date':'Thu Mar 29 2018 00:00:00 GMT+0800 (中国标准时间)', #######一定要注意  这个值是用chrom抓到的  firbox抓的不通过
+            'train_location':train_location,
+            'train_no':train_no}
+    request = req.post('https://kyfw.12306.cn/otn/confirmPassenger/getQueueCount', headers=header, data=data) #这一步感觉没作用count不能正
+   
+   train_location = tem_list[15]
+   train_no = tem_list[2]
+   count_taxi = tem_list[3]    对应上面的参数   我是全局搜索得到的   当然 你也可以自己慢慢找  
+  #下单第五步 结束                
+  下一步就是购票了  也是最后一步
+   
+   data = {
+        'passengerTicketStr':'写死的',
+        'oldPassengerStr':'写死的',
+        'randCode':'',
+        'purpose_codes':'00',
+        'key_check_isChange':key_check_ischange,      #跟repeat_submit_token  一起获得的
+        'leftTicketStr':liftTicket,                   #跟repeat_submit_token  一起获得的
+        'train_location':train_location,              train_location = tem_list[15]
+        'choose_seats':'',
+        'seatDetailType':'000',
+        'whatsSelect':'1',
+        'roomType':'00',
+        'dwAll':'N',
+        '_json_att':'',
+        'REPEAT_SUBMIT_TOKEN': repeat_submit_token}    #又用到了repeat_submit_token   这里强调一下必须一一对照值有一点不同  都不行是需要处理的
+    request = req.post('https://kyfw.12306.cn/otn/confirmPassenger/confirmSingleForQueue', headers=header, data=data)
+
+    在这里根据返回值自己判断是否买票成功
+
+
+
+
+
+
+有票 K504 有
+>>>>45,113,121,114,258,46
+登陆成功
+下单第一步完成
+{'validateMessagesShowId': '_validatorMessage', 'status': True, 'httpstatus': 200, 'data': {'flag': True}, 'messages': [], 'validateMessages': {}}
+下单第二步完成
+{'validateMessagesShowId': '_validatorMessage', 'status': True, 'httpstatus': 200, 'data': 'N', 'messages': [], 'validateMessages': {}}
+成功获取登陆验证码
+下单第三步完成
+{'validateMessagesShowId': '_validatorMessage', 'status': True, 'httpstatus': 200, 'data': {'isExist': True, 'exMsg': '', 'two_isOpenClick': ['93', '95', '97', '99'], 'other_isOpenClick': ['91', '93', '98', '99', '95', '97'], 'normal_passengers': [{'code': '15', 'passenger_name': '朱昭苇', 'sex_code': 'M', 'sex_name': '男', 'born_date': '1994-09-28 00:00:00', 'country_code': 'CN', 'passenger_id_type_code': '1', 'passenger_id_type_name': '二代身份证', 'passenger_id_no': '610422199409280031', 'passenger_type': '1', 'passenger_flag': '0', 'passenger_type_name': '成人', 'mobile_no': '18810226449', 'phone_no': '', 'email': 'zzwayyh@126.com', 'address': '', 'postalcode': '', 'first_letter': '', 'recordCount': '15', 'total_times': '99', 'index_id': '0'}, {'code': '1', 'passenger_name': '蔡敏', 'sex_code': 'F', 'sex_name': '女', 'born_date': '2015-08-05 00:00:00', 'country_code': 'CN', 'passenger_id_type_code': '1', 'passenger_id_type_name': '二代身份证', 'passenger_id_no': '610422198406233825', 'passenger_type': '1', 'passenger_flag': '0', 'passenger_type_name': '成人', 'mobile_no': '', 'phone_no': '', 'email': '', 'address': '', 'postalcode': '', 'first_letter': 'CM', 'recordCount': '15', 'total_times': '99', 'index_id': '1'}, {'code': '2', 'passenger_name': '程茵', 'sex_code': 'F', 'sex_name': '女', 'born_date': '2014-12-04 00:00:00', 'country_code': 'CN', 'passenger_id_type_code': '1', 'passenger_id_type_name': '二代身份证', 'passenger_id_no': '61042219950504002X', 'passenger_type': '3', 'passenger_flag': '0', 'passenger_type_name': '学生', 'mobile_no': '', 'phone_no': '', 'email': '', 'address': '', 'postalcode': '', 'first_letter': 'CY', 'recordCount': '15', 'total_times': '99', 'index_id': '2'}, {'code': '4', 'passenger_name': '裴百才', 'sex_code': 'M', 'sex_name': '男', 'born_date': '1958-01-15 00:00:00', 'country_code': 'CN', 'passenger_id_type_code': '1', 'passenger_id_type_name': '二代身份证', 'passenger_id_no': '410823195801159319', 'passenger_type': '1', 'passenger_flag': '0', 'passenger_type_name': '成人', 'mobile_no': '', 'phone_no': '', 'email': '', 'address': '', 'postalcode': '', 'first_letter': 'PBC', 'recordCount': '15', 'total_times': '99', 'index_id': '3'}, {'code': '3', 'passenger_name': '裴西方', 'sex_code': 'M', 'sex_name': '男', 'born_date': '1953-07-12 00:00:00', 'country_code': 'CN', 'passenger_id_type_code': '1', 'passenger_id_type_name': '二代身份证', 'passenger_id_no': '410823195307129333', 'passenger_type': '1', 'passenger_flag': '0', 'passenger_type_name': '成人', 'mobile_no': '', 'phone_no': '', 'email': '', 'address': '', 'postalcode': '', 'first_letter': 'PXF', 'recordCount': '15', 'total_times': '99', 'index_id': '4'}, {'code': '5', 'passenger_name': '汤光睿', 'sex_code': 'M', 'sex_name': '男', 'born_date': '2014-12-13 00:00:00', 'country_code': 'CN', 'passenger_id_type_code': '1', 'passenger_id_type_name': '二代身份证', 'passenger_id_no': '420606199405266019', 'passenger_type': '3', 'passenger_flag': '0', 'passenger_type_name': '学生', 'mobile_no': '', 'phone_no': '', 'email': '', 'address': '', 'postalcode': '', 'first_letter': 'TGR', 'recordCount': '15', 'total_times': '99', 'index_id': '5'}, {'code': '6', 'passenger_name': '王华', 'sex_code': '', 'born_date': '1900-01-01 00:00:00', 'country_code': 'CN', 'passenger_id_type_code': '1', 'passenger_id_type_name': '二代身份证', 'passenger_id_no': '640321199306091717', 'passenger_type': '1', 'passenger_flag': '0', 'passenger_type_name': '成人', 'mobile_no': '', 'phone_no': '', 'email': '', 'address': '', 'postalcode': '', 'first_letter': 'WH', 'recordCount': '15', 'total_times': '99', 'index_id': '6'}, {'code': '7', 'passenger_name': '王玥瑶', 'sex_code': 'F', 'sex_name': '女', 'born_date': '1994-09-10 00:00:00', 'country_code': 'CN', 'passenger_id_type_code': '1', 'passenger_id_type_name': '二代身份证', 'passenger_id_no': '610422199409100045', 'passenger_type': '1', 'passenger_flag': '0', 'passenger_type_name': '成人', 'mobile_no': '', 'phone_no': '', 'email': '', 'address': '', 'postalcode': '', 'first_letter': 'W玥Y', 'recordCount': '15', 'total_times': '99', 'index_id': '7'}, {'code': '8', 'passenger_name': '谢会爽', 'sex_code': 'F', 'sex_name': '女', 'born_date': '2016-12-20 00:00:00', 'country_code': 'CN', 'passenger_id_type_code': '1', 'passenger_id_type_name': '二代身份证', 'passenger_id_no': '220183199302081028', 'passenger_type': '1', 'passenger_flag': '0', 'passenger_type_name': '成人', 'mobile_no': '', 'phone_no': '', 'email': '', 'address': '', 'postalcode': '', 'first_letter': 'XHS', 'recordCount': '15', 'total_times': '98', 'index_id': '8'}, {'code': '10', 'passenger_name': '辛孟怡', 'sex_code': 'F', 'sex_name': '女', 'born_date': '1980-01-01 00:00:00', 'country_code': 'CN', 'passenger_id_type_code': '1', 'passenger_id_type_name': '二代身份证', 'passenger_id_no': '410823199405300024', 'passenger_type': '1', 'passenger_flag': '0', 'passenger_type_name': '成人', 'mobile_no': '15600280721', 'phone_no': '', 'email': '', 'address': '', 'postalcode': '', 'first_letter': 'XM-', 'recordCount': '15', 'total_times': '99', 'index_id': '9'}, {'code': '9', 'passenger_name': '辛明峰', 'sex_code': 'M', 'sex_name': '男', 'born_date': '1972-07-15 00:00:00', 'country_code': 'CN', 'passenger_id_type_code': '1', 'passenger_id_type_name': '二代身份证', 'passenger_id_no': '410823197207150118', 'passenger_type': '1', 'passenger_flag': '0', 'passenger_type_name': '成人', 'mobile_no': '', 'phone_no': '', 'email': '', 'address': '', 'postalcode': '', 'first_letter': 'XMF', 'recordCount': '15', 'total_times': '99', 'index_id': '10'}, {'code': '11', 'passenger_name': '杨红梅', 'sex_code': 'F', 'sex_name': '女', 'born_date': '1971-12-23 00:00:00', 'country_code': 'CN', 'passenger_id_type_code': '1', 'passenger_id_type_name': '二代身份证', 'passenger_id_no': '610422197112230042', 'passenger_type': '1', 'passenger_flag': '0', 'passenger_type_name': '成人', 'mobile_no': '', 'phone_no': '', 'email': '', 'address': '', 'postalcode': '', 'first_letter': 'YHM', 'recordCount': '15', 'total_times': '99', 'index_id': '11'}, {'code': '12', 'passenger_name': '尹小芳', 'sex_code': 'F', 'sex_name': '女', 'born_date': '1967-04-13 00:00:00', 'country_code': 'CN', 'passenger_id_type_code': '1', 'passenger_id_type_name': '二代身份证', 'passenger_id_no': '410823196704139329', 'passenger_type': '1', 'passenger_flag': '0', 'passenger_type_name': '成人', 'mobile_no': '', 'phone_no': '', 'email': '', 'address': '', 'postalcode': '', 'first_letter': 'YXF', 'recordCount': '15', 'total_times': '99', 'index_id': '12'}, {'code': '14', 'passenger_name': '赵嘉喆', 'sex_code': 'M', 'sex_name': '男', 'born_date': '1970-01-01 00:00:00', 'country_code': 'CN', 'passenger_id_type_code': '1', 'passenger_id_type_name': '二代身份证', 'passenger_id_no': '61042219950131007X', 'passenger_type': '3', 'passenger_flag': '0', 'passenger_type_name': '学生', 'mobile_no': '', 'phone_no': '', 'email': '', 'address': '', 'postalcode': '', 'first_letter': 'ZJ', 'recordCount': '15', 'total_times': '99', 'index_id': '13'}, {'code': '13', 'passenger_name': '张雯', 'sex_code': 'F', 'sex_name': '女', 'born_date': '1970-01-01 00:00:00', 'country_code': 'CN', 'passenger_id_type_code': '1', 'passenger_id_type_name': '二代身份证', 'passenger_id_no': '610422199404100062', 'passenger_type': '3', 'passenger_flag': '0', 'passenger_type_name': '学生', 'mobile_no': '', 'phone_no': '', 'email': '', 'address': '', 'postalcode': '', 'first_letter': 'ZW', 'recordCount': '15', 'total_times': '99', 'index_id': '14'}], 'dj_passengers': []}, 'messages': [], 'validateMessages': {}}
+下单第四步成功
+{'validateMessagesShowId': '_validatorMessage', 'status': True, 'httpstatus': 200, 'data': {'ifShowPassCode': 'N', 'canChooseBeds': 'N', 'canChooseSeats': 'N', 'choose_Seats': 'MOP9', 'isCanChooseMid': 'N', 'ifShowPassCodeTime': '2568', 'submitStatus': True, 'smokeStr': ''}, 'messages': [], 'validateMessages': {}}
+下单第五步成功
+{'validateMessagesShowId': '_validatorMessage', 'status': True, 'httpstatus': 200, 'data': {'count': '0', 'ticket': '22', 'op_2': 'false', 'countT': '0', 'op_1': 'false'}, 'messages': [], 'validateMessages': {}}
+{"validateMessagesShowId":"_validatorMessage","status":true,"httpstatus":200,"data":{"submitStatus":true},"messages":[],"validateMessages":{}}
+
+最后一个输出值  表示购票成功
+
+
+
+
+
+
+
+
+
 
